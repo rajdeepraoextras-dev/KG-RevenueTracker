@@ -171,7 +171,7 @@
             width: 100%;
             border-collapse: collapse;
             background: white;
-            min-width: 700px;
+            min-width: 800px;
         }
         thead {
             background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
@@ -208,6 +208,10 @@
             color: #999;
             font-size: 1.2em;
         }
+        .entry-id {
+            color: #999;
+            font-size: 0.9em;
+        }
         
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
@@ -218,8 +222,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 KhanaGo Daily Profit Log</h1>
-            <p>Simple Daily Profit Tracking</p>
+            <h1>KhanaGo Daily Profit Log</h1>
+            <p>Track Daily Revenue Streams</p>
         </div>
 
         <div class="content">
@@ -228,20 +232,20 @@
                 <div class="stat-card">
                     <h3>Total Profit</h3>
                     <div class="amount" id="totalProfit">₹0.00</div>
-                    <div class="detail" id="totalDays">0 days logged</div>
+                    <div class="detail" id="totalEntries">0 entries logged</div>
                 </div>
                 <div class="stat-card">
                     <h3>This Month</h3>
                     <div class="amount" id="monthlyProfit">₹0.00</div>
-                    <div class="detail" id="monthlyDays">0 days</div>
+                    <div class="detail" id="monthlyEntries">0 entries</div>
                 </div>
                 <div class="stat-card">
-                    <h3>Average Daily</h3>
+                    <h3>Average Per Entry</h3>
                     <div class="amount" id="avgProfit">₹0.00</div>
-                    <div class="detail">per day</div>
+                    <div class="detail">per entry</div>
                 </div>
                 <div class="stat-card">
-                    <h3>Best Day</h3>
+                    <h3>Best Entry</h3>
                     <div class="amount" id="bestProfit">₹0.00</div>
                     <div class="detail" id="bestDate">-</div>
                 </div>
@@ -254,7 +258,7 @@
 
             <!-- Log Form -->
             <div class="form-section">
-                <h2>📝 Log Today's Profit</h2>
+                <h2>Log Profit Entry</h2>
                 
                 <div class="form-group">
                     <label>Date*</label>
@@ -280,29 +284,31 @@
                 
                 <div class="form-group">
                     <label>Notes (Optional)</label>
-                    <textarea id="notes" placeholder="Any notes about today's performance..."></textarea>
+                    <textarea id="notes" placeholder="Any notes about this entry..."></textarea>
                 </div>
                 
                 <div class="button-group">
                     <button class="btn btn-secondary" id="clearBtn">Clear</button>
-                    <button class="btn btn-primary" id="addBtn">💰 Log Profit</button>
+                    <button class="btn btn-primary" id="addBtn">Log Profit</button>
                 </div>
             </div>
 
             <!-- Profit History -->
             <div class="table-section">
-                <h2>📊 Profit History</h2>
+                <h2>Profit History</h2>
                 
                 <div class="table-actions">
-                    <button class="btn btn-secondary" id="exportBtn">📥 Export CSV</button>
-                    <button class="btn btn-secondary" id="clearAllBtn">🗑️ Clear All</button>
+                    <button class="btn btn-secondary" id="exportBtn">Export CSV</button>
+                    <button class="btn btn-secondary" id="clearAllBtn">Clear All</button>
                 </div>
                 
                 <div class="table-wrapper">
                     <table>
                         <thead>
                             <tr>
+                                <th>Entry ID</th>
                                 <th>Date</th>
+                                <th>Time</th>
                                 <th>Source</th>
                                 <th>Profit/Loss</th>
                                 <th>Notes</th>
@@ -310,7 +316,7 @@
                             </tr>
                         </thead>
                         <tbody id="tbody">
-                            <tr><td colspan="5" class="no-data">No profit logged yet. Start tracking above!</td></tr>
+                            <tr><td colspan="7" class="no-data">No profit logged yet. Start tracking above.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -321,6 +327,7 @@
 <script>
 let profitLogs = [];
 let editIndex = -1;
+let nextId = 1;
 
 window.onload = function() {
     document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -336,6 +343,11 @@ function loadData() {
     const saved = localStorage.getItem('khanagoProfitLog');
     if(saved) {
         profitLogs = JSON.parse(saved);
+        // Calculate next ID
+        if(profitLogs.length > 0) {
+            const maxId = Math.max(...profitLogs.map(l => l.id || 0));
+            nextId = maxId + 1;
+        }
         render();
     }
 }
@@ -345,47 +357,45 @@ function saveData() {
 }
 
 function addLog() {
+    const now = new Date();
     const log = {
+        id: editIndex === -1 ? nextId++ : profitLogs[editIndex].id,
         date: document.getElementById('date').value,
+        time: now.toTimeString().split(' ')[0].substring(0, 5), // HH:MM format
+        timestamp: now.toISOString(),
         source: document.getElementById('source').value,
         profit: parseFloat(document.getElementById('profit').value) || 0,
         notes: document.getElementById('notes').value.trim()
     };
     
     if(!log.date) {
-        alert('⚠️ Please select a date!');
+        alert('Please select a date!');
         return;
     }
     
     if(!log.source) {
-        alert('⚠️ Please select a source!');
+        alert('Please select a source!');
         return;
     }
     
     if(log.profit === 0) {
-        alert('⚠️ Please enter profit amount!');
+        alert('Please enter profit amount!');
         return;
     }
     
-    // Check if date already exists
-    const existingIndex = profitLogs.findIndex(l => l.date === log.date);
-    if(existingIndex !== -1 && editIndex === -1) {
-        if(!confirm(`Log for ${log.date} already exists. Overwrite?`)) {
-            return;
-        }
-        profitLogs[existingIndex] = log;
-    } else if(editIndex === -1) {
+    if(editIndex === -1) {
         profitLogs.push(log);
+        alert('Profit logged successfully!');
     } else {
         profitLogs[editIndex] = log;
         editIndex = -1;
-        document.getElementById('addBtn').textContent = '💰 Log Profit';
+        document.getElementById('addBtn').textContent = 'Log Profit';
+        alert('Entry updated successfully!');
     }
     
     saveData();
     render();
     clearForm();
-    alert('✅ Profit logged successfully!');
 }
 
 function clearForm() {
@@ -394,19 +404,19 @@ function clearForm() {
     document.getElementById('notes').value = '';
     document.getElementById('date').value = new Date().toISOString().split('T')[0];
     editIndex = -1;
-    document.getElementById('addBtn').textContent = '💰 Log Profit';
+    document.getElementById('addBtn').textContent = 'Log Profit';
 }
 
 function render() {
     const tbody = document.getElementById('tbody');
     if(!profitLogs.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="no-data">No profit logged yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="no-data">No profit logged yet.</td></tr>';
         updateStats();
         return;
     }
     
-    // Sort by date descending
-    const sorted = [...profitLogs].sort((a,b) => new Date(b.date) - new Date(a.date));
+    // Sort by timestamp descending (newest first)
+    const sorted = [...profitLogs].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
     
     tbody.innerHTML = sorted.map(log => {
         const idx = profitLogs.indexOf(log);
@@ -415,13 +425,15 @@ function render() {
         
         return `
             <tr>
+                <td><span class="entry-id">#${log.id}</span></td>
                 <td><b>${log.date}</b></td>
+                <td>${log.time}</td>
                 <td>${log.source}</td>
                 <td class="${profitClass}">${profitSymbol}₹${log.profit.toFixed(2)}</td>
                 <td>${log.notes || '-'}</td>
                 <td>
-                    <button class="btn-small btn-edit" onclick="editLog(${idx})">✏️</button>
-                    <button class="btn-small btn-delete" onclick="deleteLog(${idx})">🗑️</button>
+                    <button class="btn-small btn-edit" onclick="editLog(${idx})">Edit</button>
+                    <button class="btn-small btn-delete" onclick="deleteLog(${idx})">Delete</button>
                 </td>
             </tr>
         `;
@@ -438,16 +450,16 @@ function editLog(i) {
     document.getElementById('notes').value = log.notes;
     
     editIndex = i;
-    document.getElementById('addBtn').textContent = '✅ Update Profit';
+    document.getElementById('addBtn').textContent = 'Update Entry';
     window.scrollTo(0, 0);
 }
 
 function deleteLog(i) {
-    if(confirm(`Delete profit log for ${profitLogs[i].date}?`)) {
+    if(confirm(`Delete entry #${profitLogs[i].id}?`)) {
         profitLogs.splice(i, 1);
         saveData();
         render();
-        alert('✅ Log deleted!');
+        alert('Entry deleted!');
     }
 }
 
@@ -456,9 +468,9 @@ function updateStats() {
     
     if(total === 0) {
         document.getElementById('totalProfit').textContent = '₹0.00';
-        document.getElementById('totalDays').textContent = '0 days logged';
+        document.getElementById('totalEntries').textContent = '0 entries logged';
         document.getElementById('monthlyProfit').textContent = '₹0.00';
-        document.getElementById('monthlyDays').textContent = '0 days';
+        document.getElementById('monthlyEntries').textContent = '0 entries';
         document.getElementById('avgProfit').textContent = '₹0.00';
         document.getElementById('bestProfit').textContent = '₹0.00';
         document.getElementById('bestDate').textContent = '-';
@@ -471,7 +483,7 @@ function updateStats() {
     const avgProfit = totalProfit / total;
     
     document.getElementById('totalProfit').textContent = '₹' + totalProfit.toFixed(2);
-    document.getElementById('totalDays').textContent = total + (total === 1 ? ' day logged' : ' days logged');
+    document.getElementById('totalEntries').textContent = total + (total === 1 ? ' entry logged' : ' entries logged');
     document.getElementById('avgProfit').textContent = '₹' + avgProfit.toFixed(2);
     
     // This month
@@ -483,14 +495,14 @@ function updateStats() {
     const monthlyProfit = thisMonth.reduce((s, l) => s + l.profit, 0);
     
     document.getElementById('monthlyProfit').textContent = '₹' + monthlyProfit.toFixed(2);
-    document.getElementById('monthlyDays').textContent = thisMonth.length + (thisMonth.length === 1 ? ' day' : ' days');
+    document.getElementById('monthlyEntries').textContent = thisMonth.length + (thisMonth.length === 1 ? ' entry' : ' entries');
     
-    // Best day
+    // Best entry
     const sorted = [...profitLogs].sort((a, b) => b.profit - a.profit);
     const best = sorted[0];
     
     document.getElementById('bestProfit').textContent = '₹' + best.profit.toFixed(2);
-    document.getElementById('bestDate').textContent = best.date;
+    document.getElementById('bestDate').textContent = best.date + ' ' + best.time;
     
     // Top source
     const sources = {};
@@ -509,15 +521,17 @@ function updateStats() {
 
 function exportToCSV() {
     if(!profitLogs.length) {
-        alert('⚠️ No data to export!');
+        alert('No data to export!');
         return;
     }
     
-    const headers = ['Date', 'Source', 'Profit', 'Notes'];
+    const headers = ['Entry ID', 'Date', 'Time', 'Source', 'Profit', 'Notes'];
     const csv = [
         headers.join(','),
         ...profitLogs.map(l => [
+            l.id,
             l.date,
+            l.time,
             l.source,
             l.profit.toFixed(2),
             `"${l.notes}"`
@@ -529,15 +543,16 @@ function exportToCSV() {
     a.href = URL.createObjectURL(blob);
     a.download = `KhanaGo_Profit_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-    alert('✅ Data exported!');
+    alert('Data exported successfully!');
 }
 
 function clearAllData() {
-    if(confirm('⚠️ Delete all profit logs? This cannot be undone!')) {
+    if(confirm('Delete all profit logs? This cannot be undone!')) {
         profitLogs = [];
+        nextId = 1;
         saveData();
         render();
-        alert('✅ All data cleared!');
+        alert('All data cleared!');
     }
 }
 </script>
